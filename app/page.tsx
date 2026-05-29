@@ -28,7 +28,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [resumeText, setResumeText] = useState("");
-const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [autoScanEnabled, setAutoScanEnabled] = useState(false);
 
   const ratingColor: Record<string, string> = {
     High: "bg-green-100 text-green-800",
@@ -52,6 +54,19 @@ const [resumeUploading, setResumeUploading] = useState(false);
   setResumeText(data.text);
   setResumeUploading(false);
 };
+
+  const saveConfig = async () => {
+    if (!email) return alert("Please enter your email first");
+    const res = await fetch("/api/save-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sheetUrl, preferences, resumeText, email }),
+    });
+    if (res.ok) {
+      setAutoScanEnabled(true);
+      alert("✅ Daily auto-scan enabled!");
+    }
+  };
 
   const handleScan = async () => {
     if (!sheetUrl) return alert("Please enter a Google Sheet URL");
@@ -223,6 +238,25 @@ const [resumeUploading, setResumeUploading] = useState(false);
             </div>
           </div>
         </div>
+
+        {/* Auto Scan */}
+<div className="bg-white rounded-2xl shadow p-6 mb-6">
+  <h2 className="text-lg font-semibold mb-2">⏰ Daily Auto-Scan</h2>
+  <p className="text-sm text-gray-400 mb-3">We'll scan every day at 9:30 AM and email you the results</p>
+  <input
+    type="email"
+    placeholder="your@email.com"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-800 mb-3"
+  />
+  <button
+    onClick={saveConfig}
+    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-xl transition"
+  >
+    {autoScanEnabled ? "✅ Auto-Scan Enabled" : "Enable Daily Auto-Scan"}
+  </button>
+</div>
 
         {/* Scan Button */}
         <button
