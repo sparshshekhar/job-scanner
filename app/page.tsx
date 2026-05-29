@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 
+
 export type Preferences = {
   jobType: string;
   experience: string;
@@ -26,6 +27,8 @@ export default function Home() {
   const [results, setResults] = useState<CompanyResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [resumeText, setResumeText] = useState("");
+const [resumeUploading, setResumeUploading] = useState(false);
 
   const ratingColor: Record<string, string> = {
     High: "bg-green-100 text-green-800",
@@ -34,6 +37,21 @@ export default function Home() {
     "No Opening": "bg-red-100 text-red-800",
     Pending: "bg-gray-100 text-gray-500",
   };
+
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setResumeUploading(true);
+  const formData = new FormData();
+  formData.append("resume", file);
+  const res = await fetch("/api/parse-resume", {
+    method: "POST",
+    body: formData,
+  });
+  const data = await res.json();
+  setResumeText(data.text);
+  setResumeUploading(false);
+};
 
   const handleScan = async () => {
     if (!sheetUrl) return alert("Please enter a Google Sheet URL");
@@ -69,7 +87,7 @@ export default function Home() {
       const res = await fetch("/api/scan-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company: companies[i], preferences }),
+        body: JSON.stringify({ company: companies[i], preferences, resumeText }),
       });
       const data = await res.json();
       final[i] = { ...final[i], rating: data.rating, reason: data.reason };
@@ -120,6 +138,20 @@ export default function Home() {
             className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-800"
           />
         </div>
+
+        {/* Resume Upload */}
+<div className="bg-white rounded-2xl shadow p-6 mb-6">
+  <h2 className="text-lg font-semibold mb-2">📄 Upload Resume <span className="text-sm text-gray-400 font-normal">(optional but recommended)</span></h2>
+  <p className="text-sm text-gray-400 mb-3">AI will match jobs based on your actual resume</p>
+  <input
+    type="file"
+    accept=".pdf"
+    onChange={handleResumeUpload}
+    className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+  />
+  {resumeUploading && <p className="text-sm text-blue-500 mt-2">Extracting resume...</p>}
+  {resumeText && !resumeUploading && <p className="text-sm text-green-600 mt-2">✅ Resume loaded successfully!</p>}
+</div>
 
         {/* Preferences */}
         <div className="bg-white rounded-2xl shadow p-6 mb-6">
