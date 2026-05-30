@@ -68,6 +68,17 @@ export default function Home() {
     }
   };
 
+  const writeToSheet = async () => {
+  if (!results.length) return alert("No results to write!");
+  const res = await fetch("/api/write-sheet", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sheetUrl, results }),
+  });
+  if (res.ok) alert("✅ Results written to Google Sheet!");
+  else alert("❌ Failed to write to sheet");
+};
+
   const handleScan = async () => {
     if (!sheetUrl) return alert("Please enter a Google Sheet URL");
     setLoading(true);
@@ -268,6 +279,13 @@ export default function Home() {
             ? `Scanning... (${progress.current}/${progress.total})`
             : "🚀 Start Scanning"}
         </button>
+
+        <button
+  onClick={writeToSheet}
+  className="text-sm bg-green-100 hover:bg-green-200 text-green-800 px-4 py-1.5 rounded-lg"
+>
+  📊 Write to Sheet
+</button>
 
         {/* Results */}
         {results.length > 0 && (
