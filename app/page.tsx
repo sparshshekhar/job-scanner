@@ -31,6 +31,8 @@ export default function Home() {
   const [resumeUploading, setResumeUploading] = useState(false);
   const [email, setEmail] = useState("");
   const [autoScanEnabled, setAutoScanEnabled] = useState(false);
+  const [filterRating, setFilterRating] = useState("All");
+  const [sortBy, setSortBy] = useState("default");
 
   const ratingColor: Record<string, string> = {
     High: "bg-green-100 text-green-800",
@@ -138,6 +140,17 @@ export default function Home() {
     a.download = "job-results.csv";
     a.click();
   };
+
+  const filteredResults = results
+  .filter(r => filterRating === "All" ? true : r.rating === filterRating)
+  .sort((a, b) => {
+    if (sortBy === "company") return a.company.localeCompare(b.company);
+    if (sortBy === "rating") {
+      const order = ["High", "Medium", "Low", "No Opening", "Pending"];
+      return order.indexOf(a.rating) - order.indexOf(b.rating);
+    }
+    return 0;
+  });
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
@@ -292,6 +305,46 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">📊 Results</h2>
+              {/* Stats */}
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            {["High", "Medium", "Low", "No Opening"].map((r) => (
+              <div key={r} className={`rounded-xl p-3 text-center ${ratingColor[r]}`}>
+                <div className="text-2xl font-bold">
+                  {results.filter(x => x.rating === r).length}
+                </div>
+                <div className="text-xs font-medium">{r}</div>
+              </div>
+            ))}
+
+          {/* Filters */}
+          <div className="flex gap-3 mb-4">
+            <select
+              value={filterRating}
+              onChange={(e) => setFilterRating(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-800"
+            >
+              <option value="All">All Ratings</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+              <option value="No Opening">No Opening</option>
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-800"
+            >
+              <option value="default">Default Order</option>
+              <option value="rating">Sort by Rating</option>
+              <option value="company">Sort by Company</option>
+            </select>
+
+            <span className="text-sm text-gray-400 self-center">
+              Showing {filteredResults.length} of {results.length}
+            </span>
+          </div>
+          </div>
               <button
                 onClick={exportCSV}
                 className="text-sm bg-gray-100 hover:bg-gray-200 px-4 py-1.5 rounded-lg"
@@ -308,7 +361,7 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {results.map((r, i) => (
+                {filteredResults.map((r, i) => (
                   <tr key={i} className="border-b last:border-0">
                     <td className="py-3">
                       <a
