@@ -15,7 +15,6 @@ async function fetchPageText(url: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   const { company, preferences, resumeText } = await req.json();
-
   const pageText = await fetchPageText(company.url);
 
   const prompt = `You are a strict job match analyzer.
@@ -68,7 +67,38 @@ Respond ONLY in this JSON format:
     const jsonMatch = raw.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) throw new Error("No JSON in response");
     const parsed = JSON.parse(jsonMatch[0]);
+
+    // Send instant email alert for High matches
+    if (parsed.rating === "High" && process.env.RESEND_API_KEY) {
+      const { Resend } = await import("resend");
+      const resend = new Resend(process.env.RESEND_API_KEY);
+
+      const { Redis } = await import("@upstash/redis");
+      const redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL!,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+      });
+      const config = await redis.get("scan_config") as any;
+
+      if (config?.email) {
+        await resend.emails.send({
+          from: "Job Scanner <onboarding@resend.dev>",
+          to: config.email,
+          subject: `🟢 High Match Found — ${company.name}!`,
+          html: `
+            <h2>🎉 High Match Found!</h2>
+            <h3>${company.name}</h3>
+            <p>${parsed.reason}</p>
+            <a href="${company.url}" style="background:#2563eb;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">
+              View Jobs →
+            </a>
+          `,
+        });
+      }
+    }
+
     return NextResponse.json(parsed);
+
   } catch (err) {
     console.error("Scan error:", err);
     return NextResponse.json({
