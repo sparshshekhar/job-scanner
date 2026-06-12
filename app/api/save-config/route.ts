@@ -8,6 +8,7 @@ const redis = new Redis({
 
 export async function POST(req: NextRequest) {
   const config = await req.json();
-  await redis.set("scan_config", config);
+  const userKey = `scan_config:${config.email}`;
+  await redis.set(userKey, config);
   return NextResponse.json({ success: true });
 }
