@@ -87,7 +87,6 @@ export default function Home() {
     setLoading(true);
     setResults([]);
 
-    // Step 1: Read the sheet
     const sheetRes = await fetch("/api/read-sheet", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -100,7 +99,6 @@ export default function Home() {
       return;
     }
 
-    // Step 2: Initialize results as Pending
     const initial: CompanyResult[] = companies.map((c: any) => ({
       company: c.name,
       url: c.url,
@@ -110,7 +108,6 @@ export default function Home() {
     setResults(initial);
     setProgress({ current: 0, total: companies.length });
 
-    // Step 3: Scan each company one by one
     const final = [...initial];
     for (let i = 0; i < companies.length; i++) {
       const res = await fetch("/api/scan-jobs", {
@@ -158,249 +155,276 @@ export default function Home() {
     });
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <main className="min-h-screen bg-gray-100 p-4 sm:p-8">
       <div className="max-w-4xl mx-auto">
-        {/* Header with auth */}
-        <div className="flex justify-between items-center mb-8"></div>
-        <h1 className="text-3xl font-bold text-gray-800">🔍 Job Scanner</h1>
-        <p className="text-gray-500">
-          Scan company career pages and rate job matches automatically.
-        </p>
-      </div>
-      <div>
-        {session ? (
-          <>
-            <div className="max-w-4xl mx-auto">
-              {/* Sheet URL */}
-              <div className="bg-white rounded-2xl shadow p-6 mb-6">
-                <h2 className="text-lg font-semibold mb-3">
-                  📄 Google Sheet URL
-                </h2>
-                <p className="text-sm text-gray-400 mb-2">
-                  Sheet must be public. Expected columns:{" "}
-                  <code>Company Name</code>, <code>Career Page URL</code>
-                </p>
-                <input
-                  type="text"
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
-                  value={sheetUrl}
-                  onChange={(e) => setSheetUrl(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-800"
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">🔍 Job Scanner</h1>
+            <p className="text-gray-500">
+              Scan company career pages and rate job matches automatically.
+            </p>
+          </div>
+          <div className="w-full sm:w-auto">
+            {session ? (
+              <div className="flex items-center gap-3">
+                <img
+                  src={session.user?.image!}
+                  className="w-8 h-8 rounded-full"
                 />
-              </div>
-
-              {/* Resume Upload */}
-              <div className="bg-white rounded-2xl shadow p-6 mb-6">
-                <h2 className="text-lg font-semibold mb-2">
-                  📄 Upload Resume{" "}
-                  <span className="text-sm text-gray-400 font-normal">
-                    (optional but recommended)
-                  </span>
-                </h2>
-                <p className="text-sm text-gray-400 mb-3">
-                  AI will match jobs based on your actual resume
-                </p>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleResumeUpload}
-                  className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {resumeUploading && (
-                  <p className="text-sm text-blue-500 mt-2">
-                    Extracting resume...
-                  </p>
-                )}
-                {resumeText && !resumeUploading && (
-                  <p className="text-sm text-green-600 mt-2">
-                    ✅ Resume loaded successfully!
-                  </p>
-                )}
-              </div>
-
-              {/* Preferences */}
-              <div className="bg-white rounded-2xl shadow p-6 mb-6">
-                <h2 className="text-lg font-semibold mb-4">
-                  ⚙️ Your Preferences
-                </h2>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-600 mb-1 block">
-                      Job Type
-                    </label>
-                    <select
-                      value={preferences.jobType}
-                      onChange={(e) =>
-                        setPreferences({
-                          ...preferences,
-                          jobType: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
-                    >
-                      <option>AI/ML</option>
-                      <option>Full Stack</option>
-                      <option>Frontend</option>
-                      <option>Backend</option>
-                      <option>Data Science</option>
-                      <option>DevOps</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-600 mb-1 block">
-                      Experience
-                    </label>
-                    <select
-                      value={preferences.experience}
-                      onChange={(e) =>
-                        setPreferences({
-                          ...preferences,
-                          experience: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
-                    >
-                      <option>0-1 years</option>
-                      <option>1-3 years</option>
-                      <option>3-5 years</option>
-                      <option>5+ years</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-600 mb-1 block">
-                      Skills (comma separated)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Python, TensorFlow, React..."
-                      value={preferences.skills}
-                      onChange={(e) =>
-                        setPreferences({
-                          ...preferences,
-                          skills: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-600 mb-1 block">
-                      Location (optional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Remote, Bangalore, etc."
-                      value={preferences.location}
-                      onChange={(e) =>
-                        setPreferences({
-                          ...preferences,
-                          location: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Auto Scan */}
-              <div className="bg-white rounded-2xl shadow p-6 mb-6">
-                <h2 className="text-lg font-semibold mb-2">
-                  ⏰ Daily Auto-Scan
-                </h2>
-                <p className="text-sm text-gray-400 mb-3">
-                  We'll scan every day at 9:30 AM and email you the results
-                </p>
-                <input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-800 mb-3"
-                />
+                <span className="text-sm text-gray-600">
+                  {session.user?.name}
+                </span>
                 <button
-                  onClick={saveConfig}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-xl transition"
+                  onClick={() => signOut()}
+                  className="text-sm bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg"
                 >
-                  {autoScanEnabled
-                    ? "✅ Auto-Scan Enabled"
-                    : "Enable Daily Auto-Scan"}
+                  Sign Out
                 </button>
               </div>
-
-              {/* Scan Button */}
+            ) : (
               <button
-                onClick={handleScan}
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-xl mb-8 transition"
+                onClick={() => signIn("google")}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"
               >
-                {loading
-                  ? `Scanning... (${progress.current}/${progress.total})`
-                  : "🚀 Start Scanning"}
+                Sign in with Google
               </button>
+            )}
+          </div>
+        </div>
 
+        {/* Main Content */}
+        {session ? (
+          <>
+            {/* Sheet URL */}
+            <div className="bg-white rounded-2xl shadow p-6 mb-6">
+              <h2 className="text-lg font-semibold mb-3">
+                📄 Google Sheet URL
+              </h2>
+              <p className="text-sm text-gray-400 mb-2">
+                Sheet must be public. Expected columns:{" "}
+                <code>Company Name</code>, <code>Career Page URL</code>
+              </p>
+              <input
+                type="text"
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                value={sheetUrl}
+                onChange={(e) => setSheetUrl(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-800"
+              />
+            </div>
+
+            {/* Resume Upload */}
+            <div className="bg-white rounded-2xl shadow p-6 mb-6">
+              <h2 className="text-lg font-semibold mb-2">
+                📄 Upload Resume{" "}
+                <span className="text-sm text-gray-400 font-normal">
+                  (optional but recommended)
+                </span>
+              </h2>
+              <p className="text-sm text-gray-400 mb-3">
+                AI will match jobs based on your actual resume
+              </p>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handleResumeUpload}
+                className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {resumeUploading && (
+                <p className="text-sm text-blue-500 mt-2">
+                  Extracting resume...
+                </p>
+              )}
+              {resumeText && !resumeUploading && (
+                <p className="text-sm text-green-600 mt-2">
+                  ✅ Resume loaded successfully!
+                </p>
+              )}
+            </div>
+
+            {/* Preferences */}
+            <div className="bg-white rounded-2xl shadow p-6 mb-6">
+              <h2 className="text-lg font-semibold mb-4">
+                ⚙️ Your Preferences
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-gray-600 mb-1 block">
+                    Job Type
+                  </label>
+                  <select
+                    value={preferences.jobType}
+                    onChange={(e) =>
+                      setPreferences({
+                        ...preferences,
+                        jobType: e.target.value,
+                      })
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
+                  >
+                    <option>AI/ML</option>
+                    <option>Full Stack</option>
+                    <option>Frontend</option>
+                    <option>Backend</option>
+                    <option>Data Science</option>
+                    <option>DevOps</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600 mb-1 block">
+                    Experience
+                  </label>
+                  <select
+                    value={preferences.experience}
+                    onChange={(e) =>
+                      setPreferences({
+                        ...preferences,
+                        experience: e.target.value,
+                      })
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
+                  >
+                    <option>0-1 years</option>
+                    <option>1-3 years</option>
+                    <option>3-5 years</option>
+                    <option>5+ years</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600 mb-1 block">
+                    Skills (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Python, TensorFlow, React..."
+                    value={preferences.skills}
+                    onChange={(e) =>
+                      setPreferences({ ...preferences, skills: e.target.value })
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600 mb-1 block">
+                    Location (optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Remote, Bangalore, etc."
+                    value={preferences.location}
+                    onChange={(e) =>
+                      setPreferences({
+                        ...preferences,
+                        location: e.target.value,
+                      })
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Auto Scan */}
+            <div className="bg-white rounded-2xl shadow p-6 mb-6">
+              <h2 className="text-lg font-semibold mb-2">⏰ Daily Auto-Scan</h2>
+              <p className="text-sm text-gray-400 mb-3">
+                We'll scan every day at 9:30 AM and email you the results
+              </p>
+              <input
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-800 mb-3"
+              />
               <button
-                onClick={writeToSheet}
-                className="text-sm bg-green-100 hover:bg-green-200 text-green-800 px-4 py-1.5 rounded-lg"
+                onClick={saveConfig}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-xl transition"
               >
-                📊 Write to Sheet
+                {autoScanEnabled
+                  ? "✅ Auto-Scan Enabled"
+                  : "Enable Daily Auto-Scan"}
               </button>
+            </div>
 
-              {/* Results */}
-              {results.length > 0 && (
-                <div className="bg-white rounded-2xl shadow p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold">📊 Results</h2>
-                    {/* Stats */}
-                    <div className="grid grid-cols-4 gap-3 mb-4">
-                      {["High", "Medium", "Low", "No Opening"].map((r) => (
-                        <div
-                          key={r}
-                          className={`rounded-xl p-3 text-center ${ratingColor[r]}`}
-                        >
-                          <div className="text-2xl font-bold">
-                            {results.filter((x) => x.rating === r).length}
-                          </div>
-                          <div className="text-xs font-medium">{r}</div>
-                        </div>
-                      ))}
+            {/* Scan Button */}
+            <button
+              onClick={handleScan}
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-xl mb-4 transition"
+            >
+              {loading
+                ? `Scanning... (${progress.current}/${progress.total})`
+                : "🚀 Start Scanning"}
+            </button>
 
-                      {/* Filters */}
-                      <div className="flex gap-3 mb-4">
-                        <select
-                          value={filterRating}
-                          onChange={(e) => setFilterRating(e.target.value)}
-                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-800"
-                        >
-                          <option value="All">All Ratings</option>
-                          <option value="High">High</option>
-                          <option value="Medium">Medium</option>
-                          <option value="Low">Low</option>
-                          <option value="No Opening">No Opening</option>
-                        </select>
+            {/* Write to Sheet */}
+            <button
+              onClick={writeToSheet}
+              className="w-full sm:w-auto text-sm bg-green-100 hover:bg-green-200 text-green-800 px-4 py-1.5 rounded-lg mb-8"
+            >
+              📊 Write to Sheet
+            </button>
 
-                        <select
-                          value={sortBy}
-                          onChange={(e) => setSortBy(e.target.value)}
-                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-800"
-                        >
-                          <option value="default">Default Order</option>
-                          <option value="rating">Sort by Rating</option>
-                          <option value="company">Sort by Company</option>
-                        </select>
+            {/* Results */}
+            {results.length > 0 && (
+              <div className="bg-white rounded-2xl shadow p-6">
+                <h2 className="text-lg font-semibold mb-4">📊 Results</h2>
 
-                        <span className="text-sm text-gray-400 self-center">
-                          Showing {filteredResults.length} of {results.length}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={exportCSV}
-                      className="text-sm bg-gray-100 hover:bg-gray-200 px-4 py-1.5 rounded-lg"
+                {/* Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  {["High", "Medium", "Low", "No Opening"].map((r) => (
+                    <div
+                      key={r}
+                      className={`rounded-xl p-3 text-center ${ratingColor[r]}`}
                     >
-                      ⬇️ Export CSV
-                    </button>
-                  </div>
+                      <div className="text-2xl font-bold">
+                        {results.filter((x) => x.rating === r).length}
+                      </div>
+                      <div className="text-xs font-medium">{r}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <select
+                    value={filterRating}
+                    onChange={(e) => setFilterRating(e.target.value)}
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-800"
+                  >
+                    <option value="All">All Ratings</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                    <option value="No Opening">No Opening</option>
+                  </select>
+
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-800"
+                  >
+                    <option value="default">Default Order</option>
+                    <option value="rating">Sort by Rating</option>
+                    <option value="company">Sort by Company</option>
+                  </select>
+
+                  <span className="text-sm text-gray-400 self-center">
+                    Showing {filteredResults.length} of {results.length}
+                  </span>
+
+                  <button
+                    onClick={exportCSV}
+                    className="text-sm bg-gray-100 hover:bg-gray-200 px-4 py-1.5 rounded-lg"
+                  >
+                    ⬇️ Export CSV
+                  </button>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-gray-400 border-b">
@@ -434,8 +458,8 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="bg-white rounded-2xl shadow p-12 text-center">
@@ -448,7 +472,7 @@ export default function Home() {
             </p>
             <button
               onClick={() => signIn("google")}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold"
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold"
             >
               Sign in with Google
             </button>
