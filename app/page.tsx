@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
+import Landing from "@/components/Landing";
 
 export type Preferences = {
   jobType: string;
@@ -584,21 +585,7 @@ export default function Home() {
             )}
           </>
         ) : (
-          <div className="bg-white rounded-2xl shadow p-12 text-center">
-            <p className="text-2xl mb-4">👋</p>
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">
-              Sign in to get started
-            </h2>
-            <p className="text-gray-400 mb-6">
-              Scan company career pages and find your perfect job match
-            </p>
-            <button
-              onClick={() => signIn("google")}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold"
-            >
-              Sign in with Google
-            </button>
-          </div>
+          <Landing />
         )}
       </div>
     </main>
