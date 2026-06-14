@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 
 export type Preferences = {
@@ -14,6 +14,13 @@ export type CompanyResult = {
   url: string;
   rating: "High" | "Medium" | "Low" | "No Opening" | "Pending" | "";
   reason: string;
+  status:
+    | "Not Applied"
+    | "Applied"
+    | "Interviewing"
+    | "Offered"
+    | "Rejected"
+    | "";
 };
 
 export default function Home() {
@@ -42,6 +49,36 @@ export default function Home() {
     "No Opening": "bg-red-100 text-red-800",
     Pending: "bg-gray-100 text-gray-500",
   };
+
+  const statusColor: Record<string, string> = {
+    "Not Applied": "bg-gray-100 text-gray-600",
+    Applied: "bg-blue-100 text-blue-700",
+    Interviewing: "bg-purple-100 text-purple-700",
+    Offered: "bg-green-100 text-green-700",
+    Rejected: "bg-red-100 text-red-700",
+  };
+
+  useEffect(() => {
+    if (!session?.user?.email) return;
+
+    const loadResults = async () => {
+      try {
+        const configRes = await fetch("/api/get-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: session.user!.email }),
+        });
+        const { config } = await configRes.json();
+        if (config?.sheetUrl) setSheetUrl(config.sheetUrl);
+        if (config?.preferences) setPreferences(config.preferences);
+        if (config?.email) setEmail(config.email);
+      } catch (err) {
+        console.error("Load error:", err);
+      }
+    };
+
+    loadResults();
+  }, [session?.user?.email]);
 
   const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -82,6 +119,27 @@ export default function Home() {
     else alert("❌ Failed to write to sheet");
   };
 
+  const updateStatus = async (
+    index: number,
+    status: CompanyResult["status"],
+  ) => {
+    const updated = [...results];
+    updated[index] = { ...updated[index], status };
+    setResults(updated);
+
+    if (session?.user?.email) {
+      await fetch("/api/save-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: session.user.email,
+          company: results[index].company,
+          status,
+        }),
+      });
+    }
+  };
+
   const handleScan = async () => {
     if (!sheetUrl) return alert("Please enter a Google Sheet URL");
     setLoading(true);
@@ -104,9 +162,22 @@ export default function Home() {
       url: c.url,
       rating: "Pending",
       reason: "Scanning...",
+      status: "Not Applied",
     }));
     setResults(initial);
     setProgress({ current: 0, total: companies.length });
+
+    // Load saved statuses BEFORE scanning starts
+    let statuses: Record<string, CompanyResult["status"]> = {};
+    if (session?.user?.email) {
+      const statusRes = await fetch("/api/get-statuses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: session.user.email }),
+      });
+      const data = await statusRes.json();
+      statuses = data.statuses || {};
+    }
 
     const final = [...initial];
     for (let i = 0; i < companies.length; i++) {
@@ -120,10 +191,34 @@ export default function Home() {
         }),
       });
       const data = await res.json();
-      final[i] = { ...final[i], rating: data.rating, reason: data.reason };
+      final[i] = {
+        ...final[i],
+        rating: data.rating,
+        reason: data.reason,
+        status: statuses[companies[i].name] || "Not Applied",
+      };
       setResults([...final]);
       setProgress({ current: i + 1, total: companies.length });
       await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    if (session?.user?.email) {
+      await fetch("/api/save-results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: session.user.email, results: final }),
+      });
+
+      await fetch("/api/save-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sheetUrl,
+          preferences,
+          resumeText,
+          email: session.user.email,
+        }),
+      });
     }
 
     setLoading(false);
@@ -131,8 +226,14 @@ export default function Home() {
 
   const exportCSV = () => {
     const rows = [
-      ["Company", "URL", "Rating", "Reason"],
-      ...results.map((r) => [r.company, r.url, r.rating, r.reason]),
+      ["Company", "URL", "Rating", "Reason", "Status"],
+      ...results.map((r) => [
+        r.company,
+        r.url,
+        r.rating,
+        r.reason,
+        r.status || "Not Applied",
+      ]),
     ];
     const csv = rows.map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -431,6 +532,7 @@ export default function Home() {
                         <th className="pb-2">Company</th>
                         <th className="pb-2">Rating</th>
                         <th className="pb-2">Reason</th>
+                        <th className="pb-2">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -453,6 +555,26 @@ export default function Home() {
                             </span>
                           </td>
                           <td className="py-3 text-gray-500">{r.reason}</td>
+                          <td className="py-3">
+                            <select
+                              value={r.status || "Not Applied"}
+                              onChange={(e) =>
+                                updateStatus(
+                                  i,
+                                  e.target.value as CompanyResult["status"],
+                                )
+                              }
+                              className={`text-xs px-2 py-1 rounded-lg border-0 font-semibold cursor-pointer ${statusColor[r.status || "Not Applied"]}`}
+                            >
+                              <option value="Not Applied">Not Applied</option>
+                              <option value="Applied">📝 Applied</option>
+                              <option value="Interviewing">
+                                📞 Interviewing
+                              </option>
+                              <option value="Offered">✅ Offered</option>
+                              <option value="Rejected">❌ Rejected</option>
+                            </select>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
