@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Landing from "@/components/Landing";
+import toast from "react-hot-toast";
 
 export type Preferences = {
   jobType: string;
@@ -97,7 +98,7 @@ export default function Home() {
   };
 
   const saveConfig = async () => {
-    if (!email) return alert("Please enter your email first");
+    if (!email) return toast.error("Please enter your email first");
     const res = await fetch("/api/save-config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -105,19 +106,19 @@ export default function Home() {
     });
     if (res.ok) {
       setAutoScanEnabled(true);
-      alert("✅ Daily auto-scan enabled!");
+      toast.success("Daily auto-scan enabled!");
     }
   };
 
   const writeToSheet = async () => {
-    if (!results.length) return alert("No results to write!");
+    if (!results.length) return toast.error("No results to write yet!");
     const res = await fetch("/api/write-sheet", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sheetUrl, results }),
     });
-    if (res.ok) alert("✅ Results written to Google Sheet!");
-    else alert("❌ Failed to write to sheet");
+    if (res.ok) toast.success("Results written to Google Sheet!");
+    else toast.error("Failed to write to sheet");
   };
 
   const updateStatus = async (
@@ -142,7 +143,7 @@ export default function Home() {
   };
 
   const handleScan = async () => {
-    if (!sheetUrl) return alert("Please enter a Google Sheet URL");
+    if (!sheetUrl) return toast.error("Please enter a Google Sheet URL");
     setLoading(true);
     setResults([]);
 
@@ -153,7 +154,9 @@ export default function Home() {
     });
     const { companies } = await sheetRes.json();
     if (!companies?.length) {
-      alert("No companies found in sheet. Check the URL and sheet is public.");
+      toast.error(
+        "No companies found. Check the sheet URL and make it public.",
+      );
       setLoading(false);
       return;
     }
@@ -549,13 +552,23 @@ export default function Home() {
                             </a>
                           </td>
                           <td className="py-3">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-semibold ${ratingColor[r.rating] || ""}`}
-                            >
-                              {r.rating}
-                            </span>
+                            {r.rating === "Pending" ? (
+                              <div className="h-6 w-20 bg-gray-200 rounded-full animate-pulse" />
+                            ) : (
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-semibold ${ratingColor[r.rating] || ""}`}
+                              >
+                                {r.rating}
+                              </span>
+                            )}
                           </td>
-                          <td className="py-3 text-gray-500">{r.reason}</td>
+                          <td className="py-3 text-gray-500">
+                            {r.rating === "Pending" ? (
+                              <div className="h-4 w-48 bg-gray-200 rounded animate-pulse" />
+                            ) : (
+                              r.reason
+                            )}
+                          </td>
                           <td className="py-3">
                             <select
                               value={r.status || "Not Applied"}
