@@ -43,6 +43,10 @@ export default function Home() {
   const [filterRating, setFilterRating] = useState("All");
   const [sortBy, setSortBy] = useState("default");
   const { data: session } = useSession();
+  const [subscription, setSubscription] = useState<{
+    plan: string;
+    expiresAt?: string;
+  }>({ plan: "Free" });
 
   const ratingColor: Record<string, string> = {
     High: "bg-green-100 text-green-800",
@@ -74,6 +78,15 @@ export default function Home() {
         if (config?.sheetUrl) setSheetUrl(config.sheetUrl);
         if (config?.preferences) setPreferences(config.preferences);
         if (config?.email) setEmail(config.email);
+
+        // Load subscription status
+        const subRes = await fetch("/api/get-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: session.user!.email }),
+        });
+        const subData = await subRes.json();
+        setSubscription(subData);
       } catch (err) {
         console.error("Load error:", err);
       }
@@ -142,6 +155,47 @@ export default function Home() {
     }
   };
 
+  const handleUpgrade = async () => {
+    const orderRes = await fetch("/api/create-order", { method: "POST" });
+    const order = await orderRes.json();
+
+    const options = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      amount: order.amount,
+      currency: order.currency,
+      name: "Job Scanner Pro",
+      description: "Monthly Subscription",
+      order_id: order.id,
+      handler: async (response: any) => {
+        const verifyRes = await fetch("/api/verify-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            email: session?.user?.email,
+          }),
+        });
+        const data = await verifyRes.json();
+        if (data.success) {
+          toast.success("Welcome to Pro! 🎉");
+          setSubscription({ plan: "Pro" });
+        } else {
+          toast.error("Payment verification failed");
+        }
+      },
+      prefill: {
+        email: session?.user?.email,
+        name: session?.user?.name,
+      },
+      theme: { color: "#2563eb" },
+    };
+
+    const rzp = new (window as any).Razorpay(options);
+    rzp.open();
+  };
+
   const handleScan = async () => {
     if (!sheetUrl) return toast.error("Please enter a Google Sheet URL");
     setLoading(true);
@@ -161,7 +215,16 @@ export default function Home() {
       return;
     }
 
-    const initial: CompanyResult[] = companies.map((c: any) => ({
+    // Enforce free plan limit
+    const limit = subscription.plan === "Pro" ? companies.length : 10;
+    if (subscription.plan === "Free" && companies.length > 10) {
+      toast.error(
+        "Free plan is limited to 10 companies. Upgrade to Pro for unlimited!",
+      );
+    }
+    const limitedCompanies = companies.slice(0, limit);
+
+    const initial: CompanyResult[] = limitedCompanies.map((c: any) => ({
       company: c.name,
       url: c.url,
       rating: "Pending",
@@ -169,7 +232,7 @@ export default function Home() {
       status: "Not Applied",
     }));
     setResults(initial);
-    setProgress({ current: 0, total: companies.length });
+    setProgress({ current: 0, total: limitedCompanies.length });
 
     // Load saved statuses BEFORE scanning starts
     let statuses: Record<string, CompanyResult["status"]> = {};
@@ -184,12 +247,12 @@ export default function Home() {
     }
 
     const final = [...initial];
-    for (let i = 0; i < companies.length; i++) {
+    for (let i = 0; i < limitedCompanies.length; i++) {
       const res = await fetch("/api/scan-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          company: companies[i],
+          company: limitedCompanies[i],
           preferences,
           resumeText,
         }),
@@ -199,10 +262,10 @@ export default function Home() {
         ...final[i],
         rating: data.rating,
         reason: data.reason,
-        status: statuses[companies[i].name] || "Not Applied",
+        status: statuses[limitedCompanies[i].name] || "Not Applied",
       };
       setResults([...final]);
-      setProgress({ current: i + 1, total: companies.length });
+      setProgress({ current: i + 1, total: limitedCompanies.length });
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
@@ -270,16 +333,30 @@ export default function Home() {
               Scan company career pages and rate job matches automatically.
             </p>
           </div>
-          <div className="w-full sm:w-auto">
+          <div className="flex items-center gap-3 flex-wrap">
             {session ? (
-              <div className="flex items-center gap-3">
-                <img
-                  src={session.user?.image!}
-                  className="w-8 h-8 rounded-full"
-                />
+              <div className="flex items-center gap-3 flex-wrap">
+                {session?.user?.image && (
+                  <img
+                    src={session?.user?.image}
+                    className="w-8 h-8 rounded-full"
+                  />
+                )}
                 <span className="text-sm text-gray-600">
-                  {session.user?.name}
+                  {session?.user?.name}
                 </span>
+                {subscription?.plan === "Pro" ? (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-semibold">
+                    ⚡ Pro
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleUpgrade}
+                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-semibold"
+                  >
+                    Upgrade to Pro ₹299/mo
+                  </button>
+                )}
                 <button
                   onClick={() => signOut()}
                   className="text-sm bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg"
